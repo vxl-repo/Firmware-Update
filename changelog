@@ -1,0 +1,5 @@
+Updated Verixo-bin build to UB1160
+Added new XfreeRDP version 2.9.0 for multitouch support
+Added value ClearLogsDBOnNormalboot=1 to /sda1/data/.defaultvalues
+Added SecondsForDeleleLogsFromDB=120 to /sda1/data/.defaultvalues
+Updated kickstart for new logic in fileremove.sh 
