@@ -1,0 +1,273 @@
+#!/bin/sh
+
+echo "rcS `cat /proc/uptime`" > /root/.timecheck
+
+trap "echo -e '\nInvalid Option...'" INT TERM
+set +x
+export PATH=/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/usr/verixo-bin:/usr/X11/bin
+export LD_LIBRARY_PATH=/lib64:/usr/lib64:/lib:/usr/lib:/usr/X11R6/lib:/usr/verixo-lib:/usr/X11/lib:/usr/lib/i386-linux-gnu:/lib/i386-linux-gnu
+export LD_LIBRARY_PATH=/usr/lib64/qt4/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/usr/lib64/openssl-1.0:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/x86_64-linux-gnu
+export QT_PLUGIN_PATH=/usr/lib64/qt4/plugins/
+export SHELL=/bin/sh
+export HOME=/root
+export BOARDARCH=31238U1404
+export TERM=xterm
+
+# Cisco Jabbar Env Variable
+#export hiz=false
+#export INTEL_HIZ=0
+#export INTEL_SEPRATE_STENCIL=0
+#export XLIB_SKIP_ARGB_VISUALS=1
+
+
+if [ -f /root/.language ]; then
+	. /root/.language 1> /dev/null 2> /dev/null
+fi
+
+mkdir /root/.customscripts
+env > /root/.customscripts/env_vars_original
+if [ -f /root/.customscripts/env_vars ]; then
+	. /root/.customscripts/env_vars 1> /dev/null 2> /dev/null
+fi
+
+#System Level Proxy
+if [ -f /root/.customscript/system_proxy ]
+then
+	. /root/.customscript/system_proxy
+fi
+
+trap "-" INT TERM
+
+# Liva Board do not have sda partition. Hence modification in below link
+dmesg | grep 'ECS LIVA\|VXL IQL'
+if [ "$?" -eq "0" ] ; then
+	sed -i 's:sd\[b:sd\[a:g' /lib/udev/rules.d/60-usb-mount.rules
+fi
+
+hostname embeddedLinux
+
+echo "udev `cat /proc/uptime`" >> /root/.timecheck
+/sbin/udev start
+mount -t tmpfs tmpfs /tmp -o size=80%,nodev,nosuid,noexec
+mount -t tmpfs tmpfs /run -o size=10%,nodev,nosuid,noexec,mode=755
+mkdir -p /tmp/basic-mount /tmp/apps-mount /dev/pts /var/lib/sshd /var/log /data/basic-mount /data/apps-mount 2> /dev/null
+mount -t devpts devpts /dev/pts
+
+mknod /dev/sda b 8 0
+mknod /dev/sda1 b 8 1
+mknod /dev/sdb b 8 16
+mknod /dev/sdb1 b 8 17
+mknod /dev/sdb2 b 8 18
+mkdir /sda1
+rootdev=`findfs LABEL=sukshm`
+mount ${rootdev} /sda1
+mount -o remount,ro,nodev /sda1
+
+echo "tar `cat /proc/uptime`" >> /root/.timecheck
+tar -xf /sda1/data/loop.bz2 -C /dev/
+
+# Identifying, underlying machine is VXL TC or Desktop
+#if [ -f /data/.configurationwizard ]; then
+#	mount -o remount,rw /sda1
+#	rm -f /sda1/data/basic/oem-vxl-1.0.0.sq /sda1/data/basic/oem-CD.sq
+#	ifconfig eth0 | grep -i "00:60:72"
+#	ifconfig -a | grep -i "00:60:72"
+#	if [ "$?" -eq "0" ]; then
+#		cp -f /sda1/data/basic/oem-vxl-1.0.0.sq.1 /sda1/data/basic/oem-vxl-1.0.0.sq
+#	else
+#		cp -f /sda1/data/basic/oem-CD.sq.1 /sda1/data/basic/oem-CD.sq
+#	fi
+#	mount -o remount,ro /sda1
+#fi
+
+# Mounting basic packages first
+echo "basic `cat /proc/uptime`" >> /root/.timecheck
+
+cd /sda1/data/basic
+for i in `busybox ls *.sq`
+do
+	mkdir /data/basic-mount/`basename $i .sq` 2> /dev/null
+	(mount -n -o loop,nodev $i /data/basic-mount/`basename $i .sq`; mount -t aufs -n -o remount,append=/data/basic-mount/`basename $i .sq`=ro none /)&
+done
+#find . | grep -i sq$ | sed 's/^.\///g' > /tmp/basic.list
+#cat /tmp/basic.list | parallel 'mkdir /data/basic-mount/`basename {} .sq` ; mount -n -o loop,nodev {} /data/basic-mount/`basename {} .sq`; mount -t aufs -n -o remount,append=/data/basic-mount/`basename {} .sq`=ro none /' &
+
+
+wait
+echo "udevadm `cat /proc/uptime`" >> /root/.timecheck
+
+/sbin/udevadm trigger
+/sbin/udevadm settle -t 10
+ifconfig eth0 up
+sync
+
+cd /sda1/data/apps 
+if [ -d /sda1/data/apps ]; then
+find . | sort > /tmp/app1-list
+sed -i '1d' /tmp/app1-list
+sed -i 's/^.\///g' /tmp/app1-list
+cat /tmp/app1-list | parallel 'mkdir /data/apps-mount/`basename {} .sq` ; mount -n -o loop,nodev {} /data/apps-mount/`basename {} .sq`; mount -t aufs -n -o remount,append=/data/apps-mount/`basename {} .sq`=ro none /; sleep 0.2' &
+fi
+
+cd /data/apps 
+if [ -d /data/apps ]; then
+find . | sort > /tmp/app2-list
+sed -i '1d' /tmp/app2-list
+sed -i 's/^.\///g' /tmp/app2-list
+cat /tmp/app2-list | parallel 'mkdir /data/apps-mount/`basename {} .sq` ;cp -r `basename {}` /tmp; cd /tmp; mount -n -o loop,nodev {} /data/apps-mount/`basename {} .sq`; mount -t aufs -n -o remount,append=/data/apps-mount/`basename {} .sq`=ro none /; sleep 5' &
+fi
+
+
+cd /root
+touch /tmp/.wfs
+ln -s /tmp/.wfs /wfs
+ln -s /home/osuser /root/
+if [ ! -f /root/nodb ]; then
+	echo "Database exist" > /root/.database.existance
+else
+	mkdir -p /data
+	echo "creating database..." > /root/.configwiz
+	rm -rf /data/.configurationwizard
+	[ -f /sda1/data/sysconf.db ] || touch /data/.configurationwizard
+	cp -f /sda1/data/.os* /data/
+	cp -f /sda1/data/.perm.lic /sda1/data/.xdrivers /sda1/data/loop.bz2 /data/
+	cp -f /sda1/data/menu.orig /data/menu
+	rm -f /root/nodb
+	/sbin/ldconfig
+fi
+pcscd 
+modprobe lp
+
+if [ -f /root/.gtkrc-2.0 ] ; then
+	echo "File exist" > /dev/null
+else
+	echo 'gtk-print-backends = "file,cups"' > /root/.gtkrc-2.0
+	cp -f /root/.gtkrc-2.0 /home/osuser/
+	chown osuser:osuser /home/osuser/.gtkrc-2.0
+fi
+
+touch /tmp/.firstlaunch
+/sbin/syslogd
+
+killall psplash
+
+mkdir -p /var/lib/hwclock 2> /dev/null
+echo "startup `cat /proc/uptime`" >> /root/.timecheck
+
+startup 3
+cp -f /root/.xinitrc /data/ 1> /dev/null 2> /dev/null
+/root/.customscripts/before_x 1> /dev/null 2> /dev/null
+mv /data/.xinitrc /root/ 1> /dev/null 2> /dev/null
+startup 7 & 
+
+# Following code is commented as now it is managed from startup 1
+#if [ -f /home/digisign/Scheduler ]; then
+#	echo "/home/digisign/Scheduler" > /root/.customscripts/after_login
+#	chmod 755 /root/.customscripts/after_login
+#fi
+echo "xinit `cat /proc/uptime`" >> /root/.timecheck
+
+if [ -f /sda1/data/apps/fcitx-4.2.9.6.sq ]; then
+                export XMODIFIERS=@im=fcitx
+                export GTK_IM_MODULE=xim
+                export QT_IM_MODULE=fcitx
+                export LC_CTYPE=en_US.UTF-8
+fi
+
+# Since Xorg-1.18.2, /etc/machine-id need to have 32-bit lenght hex string, for normal operation of VLC and Chrome. May be some other apps also required this.
+
+#(uuidgen > /etc/machine-id; sed -i 's/-//g' /etc/machine-id) &
+
+#FOR RADEON  DRIVER
+
+lspci | grep -i "Radeon" > /dev/null
+radeonstatus=`echo $?`
+
+grep -q vesa /proc/cmdline > /dev/null
+vesastatus=`echo $?`
+
+if [ $vesastatus -eq 0 ]
+then
+	echo " "
+elif [ $radeonstatus -eq 0 ]
+then
+        rmmod radeon
+	modprobe radeon
+else
+	echo " "
+fi
+
+
+xinit & xpid=$!
+startup 0 & spid=$! 
+
+runlevel="5"
+
+get_opt() {
+        echo "$@" | cut -d "=" -f 2
+}
+
+for i in $(cat /proc/cmdline); do
+        case $i in
+                root\=*)
+                        root=$(get_opt $i)
+                        ;;
+		runlevel\=*)
+			runlevel=$(get_opt $i)
+			;;
+        esac
+done
+
+for i in `ls /etc/rc.d/rc${runlevel}.d/S*`
+do
+	if [ "`basename $i`" == "S29dbus" ]; then
+                echo "DBUS will not start..." >> /tmp/log1
+                cp -f /etc/machine-id /tmp/machine-id1
+        else
+                echo "Starting $i" >> /tmp/log1
+                ${i} start
+        fi
+
+done
+
+wait $spid
+
+if [ ! -f /data/.adminpwd ]; then
+
+	echo -ne "admin\nadmin\n" | smbpasswd -a -s admin
+	/etc/rc.d/service/samba restart > /dev/null
+fi
+
+#echo 3 > /proc/sys/vm/drop_caches
+
+wait $xpid
+
+while [ 1 ]; 
+do
+	if [ -f /root/.language ]; then
+		. /root/.language 1> /dev/null 2> /dev/null
+	fi
+
+	if [ -f /root/.customscripts/env_vars ]; then
+		. /root/.customscripts/env_vars 1> /dev/null 2> /dev/null
+	fi
+	startup 5
+	cp -f /root/.xinitrc /data/ 1> /dev/null 2> /dev/null
+	/root/.customscripts/before_x 1> /dev/null 2> /dev/null
+	if [ ! -f /root/.xinitrc ]; then
+		mv /data/.xinitrc /root/ 1> /dev/null 2> /dev/null
+	fi
+	killall syslogd; syslogd > /dev/null 2> /dev/null
+	
+	if [ -f /sda1/data/apps/fcitx-4.2.9.6.sq ]; then
+                export XMODIFIERS=@im=fcitx
+                export GTK_IM_MODULE=xim
+                export QT_IM_MODULE=fcitx
+                export LC_CTYPE=en_US.UTF-8
+        fi
+	
+	xinit
+done
+

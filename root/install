@@ -3,58 +3,21 @@
 mount -o remount,rw /sda1
 
 
-# Remove Kickstart and Verixo-bin
+# Remove Kickstart, Core and Verixo-bin
 rm -rf /sda1/data/basic/kickstart.sq
 rm -rf /usr/bin/file-remove.sh
 rm -rf /usr/bin/startup3.sh
 rm -rf /sda1/data/basic/verixo-bin.sq
+rm -rf /sda1/data/core/core.sq
 
 cp /tmp/kickstart.sq /sda1/data/basic/
 cp /tmp/file-remove.sh /usr/bin/
 cp /tmp/startup3.sh /usr/bin/
 cp /tmp/verixo-bin.sq /sda1/data/basic/
-
-#Remove old Xfreerdp
-cd /pkgs
-XFREERDP=`ls 004*`
-cd /
-
-mount -t aufs -o remount,del=/data/apps-mount/${XFREERDP} /
-umount /data/apps-mount/${XFREERDP}
-rm -rf /sda1/data/apps/004*
+cp /tmp/core.sq /sda1/data/core/
+cp /tmp/rcS /etc/init.d/
+cp /tmp/HighResolution.sh /usr/bin/
 
 sleep 5
 sync
-
-cp /tmp/004* /sda1/data/apps/
-sync
-
-
-
-## Set defaultvalues
-grep "ClearLogsDBOnNormalboot" /sda1/data/.defaultvalues
-if [ $? -ne 0 ]
-then
-
-	echo "ClearLogsDBOnNormalboot = 1" >> /sda1/data/.defaultvalues
-else
-
-	sed -i '/^ClearLogsDBOnNormalboot/d' /sda1/data/.defaultvalues
-	echo "ClearLogsDBOnNormalboot = 1" >> /sda1/data/.defaultvalues
-
-fi
-
-grep "SecondsForDeleleLogsFromDB" /sda1/data/.defaultvalues
-if [ $? -ne 0 ]
-then
-
-	echo "SecondsForDeleleLogsFromDB=120" >> /sda1/data/.defaultvalues
-else
-	sed -i '/^SecondsForDeleleLogsFromDB/d' /sda1/data/.defaultvalues
-	echo "SecondsForDeleleLogsFromDB=120" >> /sda1/data/.defaultvalues
-
-fi
-
-dos2unix /sda1/data/.defaultvalues
-
 mount -o remount,ro /sda1

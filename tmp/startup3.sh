@@ -67,6 +67,10 @@ cp /etc/google-chrome /opt/google/chrome/
 #Free Space after removing logs
 /usr/bin/file-remove.sh --daemon &
 
+#Set High Resolution
+sed -i '1i/usr/bin/HighResolution.sh' /root/.xinitrc
+
+
 #PulseAudio watchdog
 /usr/bin/pulsewatchdog.sh &
 
