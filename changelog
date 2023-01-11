@@ -1,2 +1,3 @@
 Updated core 'rcS' for mounting 'tmpfs' on 'run'
-Updated kickstart for new logic in fileremove.sh and HighResolution script
+Updated kickstart for new logic in fileremove.sh
+Added HighResolution script

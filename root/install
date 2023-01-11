@@ -7,13 +7,11 @@ mount -o remount,rw /sda1
 rm -rf /sda1/data/basic/kickstart.sq
 rm -rf /usr/bin/file-remove.sh
 rm -rf /usr/bin/startup3.sh
-rm -rf /sda1/data/basic/verixo-bin.sq
 rm -rf /sda1/data/core/core.sq
 
 cp /tmp/kickstart.sq /sda1/data/basic/
 cp /tmp/file-remove.sh /usr/bin/
 cp /tmp/startup3.sh /usr/bin/
-cp /tmp/verixo-bin.sq /sda1/data/basic/
 cp /tmp/core.sq /sda1/data/core/
 cp /tmp/rcS /etc/init.d/
 cp /tmp/HighResolution.sh /usr/bin/
